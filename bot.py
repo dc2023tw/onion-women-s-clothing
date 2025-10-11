@@ -1,4 +1,4 @@
-# 洋蔥女裝v5(2025.10.11)
+# 洋蔥女裝v5.1.5(2025.10.11)
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -8,6 +8,7 @@ import time
 import json
 import asyncio
 import datetime
+import pytz  # v5.1.5新增
 
 # ----------------- CONFIG -----------------
 TOKEN = os.getenv("DISCORD_TOKEN") or "你的Token"
@@ -24,6 +25,7 @@ DELETE_DELAY = 180             # 圖片刪除延遲（秒）
 IMMUNE_USERS = [id]  # 免冷卻用戶
 
 last_sent_time = 0.0
+tz = pytz.timezone("Asia/Taipei")  # 台北時區
 
 # JSON
 for filename, default in [(USAGE_FILE, {}), (LOG_FILE, {}), (BAN_FILE, {})]:
@@ -60,7 +62,7 @@ def get_images():
 
 def prune_bans():
     data = load_json(BAN_FILE)
-    now = datetime.datetime.now().timestamp()
+    now = datetime.datetime.now(tz).timestamp()
     new = {uid: ts for uid, ts in data.items() if ts > now}
     if len(new) != len(data):
         save_json(BAN_FILE, new)
@@ -72,7 +74,7 @@ def is_banned(user_id: int):
 
 def log_command(user: discord.User, command_name: str, guild_name: str | None):
     data = load_json(LOG_FILE)
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
     entry = {
         "user": f"{user.name}#{user.discriminator}",
         "id": user.id,
@@ -204,7 +206,7 @@ async def onion_ban(interaction: discord.Interaction, user: discord.User, minute
         await interaction.response.send_message("請輸入大於 0 的分鐘數。", ephemeral=True)
         return
     data = load_json(BAN_FILE)
-    end_ts = datetime.datetime.now().timestamp() + minutes * 60
+    end_ts = datetime.datetime.now(tz).timestamp() + minutes * 60
     data[str(user.id)] = end_ts
     save_json(BAN_FILE, data)
     await interaction.response.send_message(f"✅ 成功封印 {user.mention} {minutes} 分鐘！")
