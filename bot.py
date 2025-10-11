@@ -12,7 +12,7 @@ import datetime
 # ----------------- CONFIG -----------------
 TOKEN = os.getenv("DISCORD_TOKEN") or "你的Token"
 GUILD_ID = None  
-LOG_CHANNEL_ID = 1413889258527391767  # 官方紀錄頻道 ID
+LOG_CHANNEL_ID = [id]  # 官方紀錄頻道 ID
 
 IMAGE_FOLDER = "images"        # 圖片資料夾
 USAGE_FILE = "usage_log.json"  # 使用次數紀錄
@@ -21,7 +21,7 @@ BAN_FILE = "onion_bans.json"   # 封印資料
 
 MESSAGE_COOLDOWN = 5           # 冷卻（秒）
 DELETE_DELAY = 180             # 圖片刪除延遲（秒）
-IMMUNE_USERS = [1191200148357910538]  # 免冷卻用戶
+IMMUNE_USERS = [id]  # 免冷卻用戶
 
 last_sent_time = 0.0
 
