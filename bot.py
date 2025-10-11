@@ -8,7 +8,7 @@ import time
 import json
 import asyncio
 import datetime
-import pytz  # v5.1.5新增
+import pytz  
 
 # ----------------- CONFIG -----------------
 TOKEN = os.getenv("DISCORD_TOKEN") or "你的Token"
