@@ -3,26 +3,19 @@ from discord.ext import commands
 from discord import app_commands
 import random
 import os
-import time
 import json
-import asyncio
 
-TOKEN = [TOKEN]
+TOKEN = 'TOKEN'
 GUILD_ID = None
-LOG_CHANNEL_ID = [你群組紀錄頻道的ID]
+LOG_CHANNEL_ID = '頻道ID'
 
 IMAGE_FOLDER = "images"
 MESSAGE_COOLDOWN = 5      
 DELETE_DELAY = 180        
 USAGE_FILE = "usage_log.json"
-last_sent_time = 0
-
-
-IMMUNE_USERS = [免疫冷卻的人]  
 
 
 intents = discord.Intents.default()
-intents.guilds = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -52,17 +45,8 @@ def get_images():
 
 
 @bot.tree.command(name="洋蔥女裝", description="送你洋蔥女裝圖片")
+@app_commands.checks.cooldown(1, 5)
 async def onion_cosplay(interaction: discord.Interaction):
-    global last_sent_time
-    now = time.time()
-    user_id = interaction.user.id
-    user_id_str = str(user_id)
-
-    
-    if user_id not in IMMUNE_USERS and now - last_sent_time < MESSAGE_COOLDOWN:
-        remaining = round(MESSAGE_COOLDOWN - (now - last_sent_time), 1)
-        await interaction.response.send_message(f"🕒 請稍等 {remaining} 秒後再試！", ephemeral=True)
-        return
 
     images = get_images()
     if not images:
@@ -71,6 +55,7 @@ async def onion_cosplay(interaction: discord.Interaction):
 
     selected_image = random.choice(images)
 
+    user_id_str = str(interaction.user.id)
     
     data = load_usage_data()
     if user_id_str not in data:
@@ -79,22 +64,9 @@ async def onion_cosplay(interaction: discord.Interaction):
     save_usage_data(data)
 
     
-    await interaction.response.defer()
-    sent_message = await interaction.followup.send(file=discord.File(selected_image))
+    # await interaction.response.defer()
+    await interaction.response.send_message(file=discord.File(selected_image), delete_after=DELETE_DELAY)
 
-    
-    async def delete_after_delay():
-        await asyncio.sleep(DELETE_DELAY)
-        try:
-            await sent_message.delete()
-        except:
-            pass
-
-    asyncio.create_task(delete_after_delay())
-
-    
-    if user_id not in IMMUNE_USERS:
-        last_sent_time = now
 
     guild_name = interaction.guild.name if interaction.guild else "私人訊息"
     embed = discord.Embed(
@@ -104,7 +76,7 @@ async def onion_cosplay(interaction: discord.Interaction):
     )
     embed.add_field(name="使用次數", value=f"{data[user_id_str]['count']} 次", inline=True)
     embed.add_field(name="來源", value=guild_name, inline=True)
-    embed.add_field(name="使用者ID", value=user_id, inline=False)
+    embed.add_field(name="使用者ID", value=user_id_str, inline=False)
     embed.set_thumbnail(url=interaction.user.display_avatar.url)
     embed.set_footer(text=f"圖片檔案：{os.path.basename(selected_image)}")
 
@@ -113,6 +85,15 @@ async def onion_cosplay(interaction: discord.Interaction):
         await log_channel.send(embed=embed)
 
 
+@onion_cosplay.error
+async def onion_cosplay_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.CommandOnCooldown):
+        await interaction.response.send_message(
+                f"⏳ 冷卻中！請 {error.retry_after:.1f} 秒後再試。",
+                ephemeral=True
+        )
+    else:
+        return
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -129,7 +110,7 @@ async def on_guild_join(guild: discord.Guild):
         ),
         color=discord.Color.blurple()
     )
-    embed.set_thumbnail(url=bot.user.avatar.url if bot.user.avatar else discord.Embed.Empty)
+    embed.set_thumbnail(url=bot.user.avatar.url if bot.user.avatar else None)
     embed.set_footer(text=f"伺服器：{guild.name}")
 
     for channel in guild.text_channels:
