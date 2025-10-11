@@ -192,11 +192,25 @@ async def onion_log(interaction: discord.Interaction):
     if not data:
         await interaction.response.send_message("目前沒有洋蔥指令使用記錄。", ephemeral=True)
         return
-    entries = sorted(data.items(), key=lambda kv: kv[0], reverse=True)[:10]
+
+    # 取最近10筆
+    entries = sorted(data.items(), key=lambda kv: int(kv[0]), reverse=True)
+    total = len(entries)
+    display_entries = entries[:10]
+
     lines = []
-    for _k, v in entries:
+    for _k, v in display_entries:
         lines.append(f"👤 {v['user']} (`{v['id']}`) 在 `{v['guild']}` 使用 `{v['command']}` 於 {v['time']}")
-    embed = discord.Embed(title="🧅 洋蔥日誌（最近10筆）", description="\n".join(lines), color=discord.Color.dark_purple())
+
+    embed = discord.Embed(
+        title=f"🧅 洋蔥日誌（最近10筆 / 共{total}筆）",
+        description="\n".join(lines),
+        color=discord.Color.dark_purple()
+    )
+
+    if total > 10:
+        embed.set_footer(text="❗ 嵌入只顯示最近10筆，JSON檔案仍保留全部歷史記錄")
+
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="洋蔥封印", description="封印某位使用者，使其無法使用洋蔥系列指令（分鐘）")
