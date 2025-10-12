@@ -44,7 +44,6 @@
 
 *   `bot.py`: 主要的 Bot 程式碼。
 *   `images/`: 存放圖片的資料夾。
-*   `user_quotes.json`: 儲存使用者提交的語錄。
 *   `usage_log.json`: 記錄使用者指令使用次數。
 *   `onion_ban.json`: 儲存被封印使用者的資料。
 ## 必須
