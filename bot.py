@@ -1,4 +1,4 @@
-# 洋蔥女裝v5.1.5(2025.10.11)
+# 洋蔥女裝v5.3.0(2025.10.11)
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -13,19 +13,33 @@ import pytz
 # ----------------- CONFIG -----------------
 TOKEN = os.getenv("DISCORD_TOKEN") or "你的Token"
 GUILD_ID = None  
-LOG_CHANNEL_ID = [id]  # 官方紀錄頻道 ID
+LOG_CHANNEL_ID =  [ID]  # 官方紀錄頻道 ID
+DEVELOPER_IDS = [ID]  # 開發者 ID
+IMMUNE_USERS = [ID]   # 免冷卻用戶
 
 IMAGE_FOLDER = "images"        # 圖片資料夾
 USAGE_FILE = "usage_log.json"  # 使用次數紀錄
 LOG_FILE = "onion_logs.json"   # 日誌紀錄
-BAN_FILE = "onion_bans.json"   # 封印資料
+BAN_FILE = "onion_ban.json"   # 封印資料
 
 MESSAGE_COOLDOWN = 5           # 冷卻（秒）
 DELETE_DELAY = 180             # 圖片刪除延遲（秒）
-IMMUNE_USERS = [id]  # 免冷卻用戶
 
 last_sent_time = 0.0
 tz = pytz.timezone("Asia/Taipei")  # 台北時區
+
+
+
+# DEV
+def dev_only():
+    async def predicate(interaction: discord.Interaction):
+        if interaction.user.id not in DEV_IDS:
+            await interaction.response.send_message("🚫 只有開發者可以使用此指令。", ephemeral=True)
+            return False
+        return True
+    return app_commands.check(predicate)
+
+
 
 # JSON
 for filename, default in [(USAGE_FILE, {}), (LOG_FILE, {}), (BAN_FILE, {})]:
@@ -33,13 +47,13 @@ for filename, default in [(USAGE_FILE, {}), (LOG_FILE, {}), (BAN_FILE, {})]:
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(default, f, ensure_ascii=False, indent=2)
 
-# ----------------- Bot Init -----------------
+# --- Bot Init ---
 intents = discord.Intents.default()
 intents.guilds = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ----------------- Helper Functions -----------------
+# ---- Helper Functions ---
 def load_json(path):
     if not os.path.exists(path):
         return {}
@@ -97,7 +111,7 @@ async def onion_guard(interaction: discord.Interaction, command_name: str):
     log_command(interaction.user, command_name, guild_name)
     return True
 
-# ----------------- Commands -----------------
+# --- Commands ---
 @bot.tree.command(name="洋蔥女裝", description="送你洋蔥女裝圖片（非 NSFW）")
 async def onion_cosplay(interaction: discord.Interaction):
     global last_sent_time
@@ -163,6 +177,7 @@ async def onion_cosplay(interaction: discord.Interaction):
     except Exception:
         pass
 
+# --- /onion say --- 
 @bot.tree.command(name="洋蔥語錄", description="隨機送你一句洋蔥語錄 🧅")
 async def onion_quote(interaction: discord.Interaction):
     allowed = await onion_guard(interaction, "洋蔥語錄")
@@ -172,7 +187,7 @@ async def onion_quote(interaction: discord.Interaction):
         "因為只有你是男娘",
         " .洋蔥女裝",
         "那一天的女裝女裝起來",
-        "我純愛戰士",
+        "我看到的只有潛在的垃圾訊息發送者，Discord 已屏蔽該訊息。",
         "敲碗洋蔥女裝full ver. ",
         "太棒了不要跟他們同流合污",
         "為什麼妳的屁股會長痘痘？4個步驟重獲光滑美臀！",
@@ -185,12 +200,12 @@ async def onion_quote(interaction: discord.Interaction):
     embed.set_footer(text="洋蔥智慧 · Onion Wisdom")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="洋蔥日誌", description="查看洋蔥系列指令使用記錄（限管理員）")
-@app_commands.checks.has_permissions(administrator=True)
+
+
+@bot.tree.command(name="洋蔥日誌", description="查看洋蔥系列指令使用記錄（限開發者）")
 async def onion_log(interaction: discord.Interaction):
-    data = load_json(LOG_FILE)
-    if not data:
-        await interaction.response.send_message("目前沒有洋蔥指令使用記錄。", ephemeral=True)
+    if interaction.user.id not in DEVELOPER_IDS:
+        await interaction.response.send_message("🚫 你沒有權限使用此指令！。", ephemeral=True)
         return
 
     # 取最近10筆
@@ -213,20 +228,34 @@ async def onion_log(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
+# --- /onion ban ---   
 @bot.tree.command(name="洋蔥封印", description="封印某位使用者，使其無法使用洋蔥系列指令（分鐘）")
-@app_commands.checks.has_permissions(administrator=True)
+@dev_only()
 async def onion_ban(interaction: discord.Interaction, user: discord.User, minutes: int):
     if minutes <= 0:
-        await interaction.response.send_message("請輸入大於 0 的分鐘數。", ephemeral=True)
+        await interaction.response.send_message("❌ 請輸入大於 0 的分鐘數。", ephemeral=True)
         return
-    data = load_json(BAN_FILE)
-    end_ts = datetime.datetime.now(tz).timestamp() + minutes * 60
-    data[str(user.id)] = end_ts
-    save_json(BAN_FILE, data)
-    await interaction.response.send_message(f"✅ 成功封印 {user.mention} {minutes} 分鐘！")
-    log_command(interaction.user, f"封印 {user.id} {minutes} 分鐘", interaction.guild.name if interaction.guild else "私人訊息")
 
-# ----------------- Welcome -----------------
+    data = load_json(BAN_FILE)
+    end_time = (datetime.datetime.utcnow() + datetime.timedelta(minutes=minutes)).timestamp()
+    data[str(user.id)] = end_time
+    save_json(BAN_FILE, data)
+
+    await interaction.response.send_message(f"✅ 已封印 {user.mention} {minutes} 分鐘。")
+
+# --- /onion unban ---
+@bot.tree.command(name="洋蔥解封", description="解除某位使用者的洋蔥封印")
+@dev_only()
+async def onion_unban(interaction: discord.Interaction, user: discord.User):
+    data = load_json(BAN_FILE)
+    if str(user.id) in data:
+        del data[str(user.id)]
+        save_json(BAN_FILE, data)
+        await interaction.response.send_message(f"✅ 已解除 {user.mention} 的洋蔥封印。")
+    else:
+        await interaction.response.send_message("⚠️ 該使用者目前未被封印。", ephemeral=True)
+
+# --- Welcome ---
 @bot.event
 async def on_guild_join(guild: discord.Guild):
     embed = discord.Embed(
@@ -253,7 +282,30 @@ async def on_guild_join(guild: discord.Guild):
                 pass
             break
 
-# ----------------- on_ready -----------------
+
+# --- dev_server ---
+@bot.tree.command(name="dev-bot", description="BotServer")
+@dev_only()
+async def dev_bot(interaction: discord.Interaction):
+    if not bot.guilds:
+        await interaction.response.send_message("Bot目前沒有加入任何伺服器。", ephemeral=True)
+        return
+
+    lines = []
+    for g in bot.guilds:
+        lines.append(f"🏷️ {g.name} (`{g.id}`) - 成員數: {g.member_count}")
+
+    embed = discord.Embed(
+        title=f"🤖 Bot 加入的伺服器（共 {len(bot.guilds)} 個）",
+        description="\n".join(lines),
+        color=discord.Color.blue()
+    )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+
+# --- on_ready ---
 @bot.event
 async def on_ready():
     print(f"✅ 已登入為 {bot.user} (ID: {bot.user.id})")
@@ -266,6 +318,6 @@ async def on_ready():
     except Exception as e:
         print("❌ 指令同步失敗:", e)
 
-# ----------------- Run -----------------
+# --- Run ---
 if __name__ == "__main__":
     bot.run(TOKEN)
