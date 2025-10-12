@@ -1,21 +1,29 @@
-# 洋蔥女裝v5.3.0(2025.10.12)
+# 洋蔥女裝v5.4.0(2025.10.12)
 import discord
 from discord.ext import commands
 from discord import app_commands
+from discord import Embed
+from discord import app_commands, Activity, ActivityType
 import os
 import random
 import time
 import json
 import asyncio
 import datetime
+import psutil
 import pytz  
+import sys
 
 # ----------------- CONFIG -----------------
-TOKEN = os.getenv("DISCORD_TOKEN") or "你的Token"
-GUILD_ID = None  
-LOG_CHANNEL_ID =  [ID]  # 官方紀錄頻道 ID
+TOKEN = os.getenv("DISCORD_TOKEN") or "YOUR TOKEN"
+GUILD_ID = None 
+LOCKED = False 
+LOG_CHANNEL_ID = ID # 官方紀錄頻道 ID@
 DEVELOPER_IDS = [ID]  # 開發者 ID
+DEV_IDS = [ID]
 IMMUNE_USERS = [ID]   # 免冷卻用戶
+
+
 
 IMAGE_FOLDER = "images"        # 圖片資料夾
 USAGE_FILE = "usage_log.json"  # 使用次數紀錄
@@ -23,12 +31,11 @@ LOG_FILE = "onion_logs.json"   # 日誌紀錄
 BAN_FILE = "onion_ban.json"   # 封印資料
 
 MESSAGE_COOLDOWN = 5           # 冷卻（秒）
-DELETE_DELAY = 180             # 圖片刪除延遲（秒）
+DELETE_DELAY = 180            # 圖片刪除延遲（秒）
+
 
 last_sent_time = 0.0
 tz = pytz.timezone("Asia/Taipei")  # 台北時區
-
-
 
 # DEV
 def dev_only():
@@ -38,6 +45,8 @@ def dev_only():
             return False
         return True
     return app_commands.check(predicate)
+
+
 
 
 
@@ -53,7 +62,47 @@ intents.guilds = True
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ---- Helper Functions ---
+async def check_locked(ctx_or_interaction):
+    global LOCKED
+    user_id = getattr(ctx_or_interaction, "user", None)
+    if user_id is None:  # 如果是 ctx
+        user_id = ctx_or_interaction.author.id
+    else:
+        user_id = ctx_or_interaction.user.id
+
+    if LOCKED and user_id not in DEV_IDS:
+        # 回覆方式要分 ctx 與 interaction
+        if hasattr(ctx_or_interaction, "response"):
+            await ctx_or_interaction.response.send_message(
+                "🚫 BOT 已鎖定，無法使用指令。", ephemeral=True
+            )
+        else:
+            await ctx_or_interaction.send("🚫 BOT 已鎖定，無法使用指令。")
+        return False
+    return True
+
+
+# --- 開發者檢查 ---
+def is_dev(ctx):
+    return ctx.author.id in DEV_IDS
+
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    ctx = await bot.get_context(message)
+    if not await check_locked(ctx):
+        return
+    await bot.process_commands(message)
+
+
+# ---- Helper Functions --
+
+def load_json(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
 def load_json(path):
     if not os.path.exists(path):
         return {}
@@ -202,34 +251,9 @@ async def onion_quote(interaction: discord.Interaction):
 
 
 
-@bot.tree.command(name="洋蔥日誌", description="查看洋蔥系列指令使用記錄（限開發者）")
-async def onion_log(interaction: discord.Interaction):
-    if interaction.user.id not in DEVELOPER_IDS:
-        await interaction.response.send_message("🚫 你沒有權限使用此指令！。", ephemeral=True)
-        return
-
-    # 取最近10筆
-    entries = sorted(data.items(), key=lambda kv: int(kv[0]), reverse=True)
-    total = len(entries)
-    display_entries = entries[:10]
-
-    lines = []
-    for _k, v in display_entries:
-        lines.append(f"👤 {v['user']} (`{v['id']}`) 在 `{v['guild']}` 使用 `{v['command']}` 於 {v['time']}")
-
-    embed = discord.Embed(
-        title=f"🧅 洋蔥日誌（最近10筆 / 共{total}筆）",
-        description="\n".join(lines),
-        color=discord.Color.dark_purple()
-    )
-
-    if total > 10:
-        embed.set_footer(text="❗ 嵌入只顯示最近10筆，JSON檔案仍保留全部歷史記錄")
-
-    await interaction.response.send_message(embed=embed)
 
 # --- /onion ban ---   
-@bot.tree.command(name="洋蔥封印", description="封印某位使用者，使其無法使用洋蔥系列指令（分鐘）")
+@bot.tree.command(name="洋蔥封印", description="封印某位使用者，使其無法使用洋蔥系列指令(縣開發者)")
 @dev_only()
 async def onion_ban(interaction: discord.Interaction, user: discord.User, minutes: int):
     if minutes <= 0:
@@ -244,7 +268,7 @@ async def onion_ban(interaction: discord.Interaction, user: discord.User, minute
     await interaction.response.send_message(f"✅ 已封印 {user.mention} {minutes} 分鐘。")
 
 # --- /onion unban ---
-@bot.tree.command(name="洋蔥解封", description="解除某位使用者的洋蔥封印")
+@bot.tree.command(name="洋蔥解封", description="解除某位使用者的洋蔥封印(限開發者)")
 @dev_only()
 async def onion_unban(interaction: discord.Interaction, user: discord.User):
     data = load_json(BAN_FILE)
@@ -268,7 +292,7 @@ async def on_guild_join(guild: discord.Guild):
             "・輸入 `/洋蔥語錄` 來獲取一句語錄\n\n"
             "🛠️ **管理員提示**\n"
             "・可設定頻道權限避免洗版\n\n"
-            "🖥️ **開發者**：[DEV]"
+            "🖥️ **開發者**：[DEV]______"
         ),
         color=discord.Color.blurple()
     )
@@ -302,6 +326,169 @@ async def dev_bot(interaction: discord.Interaction):
     )
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class DevPanel(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)  # 永不超時
+
+    @discord.ui.button(label="改名稱 / 活動文字", style=discord.ButtonStyle.green)
+    async def name_or_activity_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in DEV_IDS:
+            await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
+            return
+
+        # 選擇改名稱或改活動
+        select = discord.ui.Select(
+            placeholder="選擇要修改的項目",
+            options=[
+                discord.SelectOption(label="改名稱", description="修改 BOT 名稱"),
+                discord.SelectOption(label="改活動", description="修改 BOT 正在玩的活動")
+            ]
+        )
+
+        async def select_callback(select_interaction):
+            choice = select.values[0]
+
+            if choice == "改名稱":
+                await select_interaction.response.send_message("請輸入 BOT 新名稱（2~32 字元）:", ephemeral=True)
+                try:
+                    msg = await interaction.client.wait_for(
+                        "message",
+                        check=lambda m: m.author.id in DEV_IDS,
+                        timeout=30
+                    )
+                    if 2 <= len(msg.content) <= 32:
+                        await interaction.client.user.edit(username=msg.content)
+                        await select_interaction.followup.send(f"✅ 名稱已改為 {msg.content}", ephemeral=True)
+                    else:
+                        await select_interaction.followup.send("🚫 名稱長度必須介於 2~32 字元！", ephemeral=True)
+                except asyncio.TimeoutError:
+                    await select_interaction.followup.send("⏰ 時間到，操作取消", ephemeral=True)
+
+            elif choice == "改活動":
+                # 活動類型選擇
+                activity_select = discord.ui.Select(
+                    placeholder="選擇活動類型",
+                    options=[
+                        discord.SelectOption(label="正在玩", value="playing"),
+                        discord.SelectOption(label="正在聽", value="listening"),
+                        discord.SelectOption(label="正在看", value="watching"),
+                        discord.SelectOption(label="直播中", value="streaming"),
+                    ]
+                )
+
+                async def activity_callback(act_interaction):
+                    act_type = activity_select.values[0]
+                    await act_interaction.response.send_message(f"請輸入活動文字（例如：LOL、音樂）:", ephemeral=True)
+                    try:
+                        msg = await interaction.client.wait_for(
+                            "message",
+                            check=lambda m: m.author.id in DEV_IDS,
+                            timeout=30
+                        )
+                        text = msg.content
+                        if act_type == "playing":
+                            activity = discord.Game(name=text)
+                        elif act_type == "listening":
+                            activity = discord.Activity(type=discord.ActivityType.listening, name=text)
+                        elif act_type == "watching":
+                            activity = discord.Activity(type=discord.ActivityType.watching, name=text)
+                        elif act_type == "streaming":
+                            activity = discord.Streaming(name=text, url="https://twitch.tv/yourchannel")
+                        await interaction.client.change_presence(activity=activity)
+                        await act_interaction.followup.send(f"✅ 活動已設為 {act_type} {text}", ephemeral=True)
+                    except asyncio.TimeoutError:
+                        await act_interaction.followup.send("⏰ 時間到，操作取消", ephemeral=True)
+
+                activity_select.callback = activity_callback
+                await interaction.followup.send("選擇活動類型:", view=discord.ui.View(timeout=None).add_item(activity_select), ephemeral=True)
+
+        select.callback = select_callback
+        await interaction.response.send_message("選擇要修改的項目:", view=discord.ui.View(timeout=None).add_item(select), ephemeral=True)
+
+    @discord.ui.button(label="改狀態", style=discord.ButtonStyle.blurple)
+    async def status_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in DEV_IDS:
+            await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
+            return
+        # 送出選擇狀態訊息
+        await interaction.response.send_message("請輸入狀態 (online / idle / dnd / invisible):", ephemeral=True)
+        try:
+            msg = await bot.wait_for("message", check=lambda m: m.author.id in DEV_IDS, timeout=30)
+            status_map = {"online": discord.Status.online, "idle": discord.Status.idle,
+                          "dnd": discord.Status.dnd, "invisible": discord.Status.invisible}
+            await bot.change_presence(status=status_map.get(msg.content.lower(), discord.Status.online))
+            await interaction.followup.send(f"✅ 狀態已改為 {msg.content.lower()}", ephemeral=True)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("⏰ 時間到，操作取消", ephemeral=True)
+
+    
+    @discord.ui.button(label="系統資訊", style=discord.ButtonStyle.blurple)
+    async def info_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in DEV_IDS:
+            await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
+            return
+        cpu = psutil.cpu_percent()
+        ram = psutil.virtual_memory().percent
+        disk = psutil.disk_usage("/").percent
+        await interaction.response.send_message(f"🖥️ CPU: {cpu}%\n💾 RAM: {ram}%\n📂 磁碟: {disk}%", ephemeral=True)
+
+    @discord.ui.button(label="關機", style=discord.ButtonStyle.red)
+    async def shutdown_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in DEV_IDS:
+            await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
+            return
+        await interaction.response.send_message("⚠️ BOT 即將關機...", ephemeral=True)
+        await bot.close()
+
+    @discord.ui.button(label="重啟", style=discord.ButtonStyle.red)
+    async def restart_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in DEV_IDS:
+            await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
+            return
+        await interaction.response.send_message("🔄 BOT 即將重啟...", ephemeral=True)
+        os.execv(sys.executable, ['python3'] + sys.argv)
+        
+@bot.tree.command(name="洋蔥日誌", description="查看洋蔥系列指令使用記錄（限開發者）")
+async def onion_log(interaction: discord.Interaction):
+    if interaction.user.id not in DEV_IDS:
+        await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
+        return
+
+    data = load_json(LOG_FILE)
+    if not data:
+        await interaction.response.send_message("目前沒有記錄。", ephemeral=True)
+        return
+
+    # 依時間排序（最新在前）
+    entries = sorted(data.items(), key=lambda kv: int(kv[0]), reverse=True)[:10]
+
+    embed = Embed(
+        title="📜 最新使用記錄",
+        color=discord.Color.green(),
+        timestamp=datetime.datetime.now()
+    )
+
+    for idx, (key, value) in enumerate(entries, start=1):
+        embed.add_field(
+            name=f"{idx}. {value['command']}",
+            value=f"👤 使用者: {value['user']}\n"
+                  f"🆔 ID: {value['id']}\n"
+                  f"🕒 時間: {value['time']}\n"
+                  f"🏠 伺服器: {value['guild']}",
+            inline=False
+        )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# ---------------------- 開發者指令 ----------------------
+@bot.command()
+@commands.check(is_dev)
+async def onion(ctx):
+    view = DevPanel()
+    embed = discord.Embed(title="🧅 洋蔥開發者面板", description="點擊下方按鈕操作", color=discord.Color.purple())
+    await ctx.send(embed=embed, view=view)
 
 
 
