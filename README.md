@@ -17,6 +17,16 @@
 *   `/洋蔥封印`: 暫時禁止特定使用者使用 Bot 指令。
 *   `/洋蔥解封`: 解除使用者的封印。
 
+### 授權
+
+本專案採用 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) 授權條款。
+
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+
+這意味著您可以自由分享和修改本作品，但僅限於非商業用途，且需標註原作者。
+
+
+
 ### 配置項
 
 | 配置項                                  | 說明                                                                 |
