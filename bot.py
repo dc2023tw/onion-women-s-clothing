@@ -489,8 +489,15 @@ async def onion(ctx):
     view = DevPanel()
     embed = discord.Embed(title="🧅 洋蔥開發者面板", description="點擊下方按鈕操作", color=discord.Color.purple())
     await ctx.send(embed=embed, view=view)
-
-
+    
+# ---------------------- 開發者指令 ----------------------
+@bot.tree.context_menu(name="Delete Message")
+async def delete_message(interaction: discord.Interaction, message: discord.Message):
+    if interaction.user.id == DEVELOPER_ID:
+        await message.delete()
+        await interaction.response.send_message("✅ 訊息已刪除", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ 你沒有權限刪除訊息", ephemeral=True)
 
 # --- on_ready ---
 @bot.event
