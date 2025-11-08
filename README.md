@@ -30,12 +30,9 @@
 
 ### 執行
 
-1.  安裝所需的 Python 套件：
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  編輯 
-3.  執行 Bot：
+
+1.  編輯 
+2.  執行 Bot：
     ```bash
     python bot.py
     ```
