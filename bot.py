@@ -1,4 +1,4 @@
-# 洋蔥女裝v5.4.0(2025.10.12)
+# 洋蔥女裝v6.0.0(2025.11.08)
 import discord
 from discord.ext import commands
 from discord import app_commands
