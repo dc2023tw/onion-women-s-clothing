@@ -18,7 +18,7 @@ import sys
 TOKEN = os.getenv("DISCORD_TOKEN") or "YOUR TOKEN"
 GUILD_ID = None 
 LOCKED = False 
-LOG_CHANNEL_ID = ID # 官方紀錄頻道 ID@
+LOG_CHANNEL_ID = ID # 官方紀錄頻道 ID
 DEVELOPER_IDS = [ID]  # 開發者 ID
 DEV_IDS = [ID]
 IMMUNE_USERS = [ID]   # 免冷卻用戶
@@ -35,7 +35,7 @@ DELETE_DELAY = 180            # 圖片刪除延遲（秒）
 
 
 last_sent_time = 0.0
-tz = pytz.timezone("Asia/Taipei")  # 台北時區
+tz = pytz.timezone("Asia/Taipei")  
 
 # DEV
 def dev_only():
@@ -50,13 +50,12 @@ def dev_only():
 
 
 
-# JSON
+
 for filename, default in [(USAGE_FILE, {}), (LOG_FILE, {}), (BAN_FILE, {})]:
     if not os.path.exists(filename):
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(default, f, ensure_ascii=False, indent=2)
 
-# --- Bot Init ---
 intents = discord.Intents.default()
 intents.guilds = True
 intents.message_content = True
@@ -65,13 +64,12 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def check_locked(ctx_or_interaction):
     global LOCKED
     user_id = getattr(ctx_or_interaction, "user", None)
-    if user_id is None:  # 如果是 ctx
+    if user_id is None:  
         user_id = ctx_or_interaction.author.id
     else:
         user_id = ctx_or_interaction.user.id
 
     if LOCKED and user_id not in DEV_IDS:
-        # 回覆方式要分 ctx 與 interaction
         if hasattr(ctx_or_interaction, "response"):
             await ctx_or_interaction.response.send_message(
                 "🚫 BOT 已鎖定，無法使用指令。", ephemeral=True
@@ -82,7 +80,6 @@ async def check_locked(ctx_or_interaction):
     return True
 
 
-# --- 開發者檢查 ---
 def is_dev(ctx):
     return ctx.author.id in DEV_IDS
 
@@ -97,7 +94,6 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-# ---- Helper Functions --
 
 def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
@@ -160,7 +156,7 @@ async def onion_guard(interaction: discord.Interaction, command_name: str):
     log_command(interaction.user, command_name, guild_name)
     return True
 
-# --- Commands ---
+
 @bot.tree.command(name="洋蔥女裝", description="送你洋蔥女裝圖片（非 NSFW）")
 async def onion_cosplay(interaction: discord.Interaction):
     global last_sent_time
@@ -252,7 +248,7 @@ async def onion_quote(interaction: discord.Interaction):
 
 
 
-# --- /onion ban ---   
+
 @bot.tree.command(name="洋蔥封印", description="封印某位使用者，使其無法使用洋蔥系列指令(縣開發者)")
 @dev_only()
 async def onion_ban(interaction: discord.Interaction, user: discord.User, minutes: int):
@@ -267,7 +263,7 @@ async def onion_ban(interaction: discord.Interaction, user: discord.User, minute
 
     await interaction.response.send_message(f"✅ 已封印 {user.mention} {minutes} 分鐘。")
 
-# --- /onion unban ---
+
 @bot.tree.command(name="洋蔥解封", description="解除某位使用者的洋蔥封印(限開發者)")
 @dev_only()
 async def onion_unban(interaction: discord.Interaction, user: discord.User):
@@ -279,7 +275,7 @@ async def onion_unban(interaction: discord.Interaction, user: discord.User):
     else:
         await interaction.response.send_message("⚠️ 該使用者目前未被封印。", ephemeral=True)
 
-# --- Welcome ---
+
 @bot.event
 async def on_guild_join(guild: discord.Guild):
     embed = discord.Embed(
@@ -307,7 +303,7 @@ async def on_guild_join(guild: discord.Guild):
             break
 
 
-# --- dev_server ---
+
 @bot.tree.command(name="dev-bot", description="BotServer")
 @dev_only()
 async def dev_bot(interaction: discord.Interaction):
@@ -330,7 +326,7 @@ async def dev_bot(interaction: discord.Interaction):
 
 class DevPanel(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None)  # 永不超時
+        super().__init__(timeout=None) 
 
     @discord.ui.button(label="改名稱 / 活動文字", style=discord.ButtonStyle.green)
     async def name_or_activity_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -338,7 +334,7 @@ class DevPanel(discord.ui.View):
             await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
             return
 
-        # 選擇改名稱或改活動
+
         select = discord.ui.Select(
             placeholder="選擇要修改的項目",
             options=[
@@ -367,7 +363,6 @@ class DevPanel(discord.ui.View):
                     await select_interaction.followup.send("⏰ 時間到，操作取消", ephemeral=True)
 
             elif choice == "改活動":
-                # 活動類型選擇
                 activity_select = discord.ui.Select(
                     placeholder="選擇活動類型",
                     options=[
@@ -412,7 +407,7 @@ class DevPanel(discord.ui.View):
         if interaction.user.id not in DEV_IDS:
             await interaction.response.send_message("🚫 只有開發者可以使用", ephemeral=True)
             return
-        # 送出選擇狀態訊息
+
         await interaction.response.send_message("請輸入狀態 (online / idle / dnd / invisible):", ephemeral=True)
         try:
             msg = await bot.wait_for("message", check=lambda m: m.author.id in DEV_IDS, timeout=30)
@@ -482,7 +477,7 @@ async def onion_log(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# ---------------------- 開發者指令 ----------------------
+
 @bot.command()
 @commands.check(is_dev)
 async def onion(ctx):
@@ -490,7 +485,7 @@ async def onion(ctx):
     embed = discord.Embed(title="🧅 洋蔥開發者面板", description="點擊下方按鈕操作", color=discord.Color.purple())
     await ctx.send(embed=embed, view=view)
     
-# ---------------------- 開發者指令 ----------------------
+
 @bot.tree.context_menu(name="Delete Message")
 async def delete_message(interaction: discord.Interaction, message: discord.Message):
     if interaction.user.id == DEVELOPER_ID:
@@ -499,7 +494,7 @@ async def delete_message(interaction: discord.Interaction, message: discord.Mess
     else:
         await interaction.response.send_message("❌ 你沒有權限刪除訊息", ephemeral=True)
 
-# --- on_ready ---
+
 @bot.event
 async def on_ready():
     print(f"✅ 已登入為 {bot.user} (ID: {bot.user.id})")
@@ -512,6 +507,6 @@ async def on_ready():
     except Exception as e:
         print("❌ 指令同步失敗:", e)
 
-# --- Run ---
+
 if __name__ == "__main__":
     bot.run(TOKEN)
