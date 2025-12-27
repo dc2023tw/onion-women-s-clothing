@@ -222,7 +222,6 @@ async def onion_cosplay(interaction: discord.Interaction):
     except Exception:
         pass
 
-# --- /onion say --- 
 @bot.tree.command(name="洋蔥語錄", description="隨機送你一句洋蔥語錄 🧅")
 async def onion_quote(interaction: discord.Interaction):
     allowed = await onion_guard(interaction, "洋蔥語錄")
@@ -456,7 +455,6 @@ async def onion_log(interaction: discord.Interaction):
         await interaction.response.send_message("目前沒有記錄。", ephemeral=True)
         return
 
-    # 依時間排序（最新在前）
     entries = sorted(data.items(), key=lambda kv: int(kv[0]), reverse=True)[:10]
 
     embed = Embed(
